@@ -1,101 +1,115 @@
-import { Alert, Badge, Card, Spinner } from "react-bootstrap";
-import { CartesianGrid, Line, LineChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts";
+import { useEffect, useState } from "react";
+import { Stack } from "react-bootstrap";
+import InfiniteCalendar, { Calendar } from "react-infinite-calendar";
+import "react-infinite-calendar/styles.css"; // Make sure to import the default stylesheet
 import type { PricePoint, Trip } from "../types";
+import { withPrices } from "./CalendarWithPrices";
+import { Loader } from "./Loader";
 
-type TripInspectorProps = {
-  activeTrip: Trip | null;
-  priceData: PricePoint[];
-  cheapest: PricePoint | null;
-  loadingPrices: boolean;
-  pricesError: string | null;
-};
+const CalendarWithRange = withPrices(Calendar);
 
 export function TripInspector({
-  activeTrip,
-  priceData,
-  cheapest,
-  loadingPrices,
-  pricesError,
-}: TripInspectorProps) {
-  return (
-    <Card className="h-100 shadow-sm">
-      <Card.Body>
-        <div className="d-flex justify-content-between align-items-center mb-3">
-          <div>
-            <Card.Title className="mb-0">
-              {activeTrip
-                ? `Trip inspector: ${activeTrip.fromAirport} → ${activeTrip.toAirport}`
-                : "Trip inspector"}
-            </Card.Title>
-            <small className="text-muted">
-              Explore historical prices and the current lowest price for a selected trip.
-            </small>
-          </div>
-          {activeTrip && (
-            <Badge bg="light" text="secondary">
-              {activeTrip.fromEarliest} – {activeTrip.toLatest}
-            </Badge>
-          )}
-        </div>
+	trip,
+	pricesReturn,
+	pricesDepart,
+}: {
+	trip: Trip;
+	pricesReturn: PricePoint[];
+	pricesDepart: PricePoint[];
+}) {
+	const [pricesByDate, setPricesByDate] = useState<Map<string, number>>(new Map());
+	const [showDepart, setShowDepart] = useState(true);
+	const data = showDepart ? pricesDepart : pricesReturn;
+	const [disabledDates, setDisabledDates] = useState<Date[]>([]);
 
-        {loadingPrices && (
-          <div className="d-flex justify-content-center align-items-center py-5">
-            <Spinner animation="border" role="status" className="me-2" />
-            <span>Loading price data…</span>
-          </div>
-        )}
+	useEffect(() => {
+		const max = new Date();
+		max.setFullYear(max.getFullYear() + 3);
 
-        {!loadingPrices && pricesError && (
-          <Alert variant="danger" className="mb-3">
-            {pricesError}
-          </Alert>
-        )}
+		const allDates = getDates(trip.fromEarliest, trip.fromLatest);
 
-        {!loadingPrices && !pricesError && activeTrip && priceData.length === 0 && (
-          <p className="text-muted mb-0">
-            No price history found for this trip yet. Run the scraper to collect data.
-          </p>
-        )}
+		if (data.length === 0) {
+			setDisabledDates(allDates);
+			return;
+		}
 
-        {!loadingPrices && !pricesError && priceData.length > 0 && (
-          <>
-            {cheapest && (
-              <Alert variant="success" className="mb-3">
-                <div className="fw-semibold mb-1">Cheapest current price</div>
-                <div className="mb-0">
-                  {cheapest.price.toFixed(2)} on {cheapest.date}
-                </div>
-              </Alert>
-            )}
+		const latesPrices = getLatestPrices(data);
+		setPricesByDate(new Map(latesPrices.map((p) => [p.date.toDateString(), p.price])));
 
-            <div style={{ width: "100%", height: 360 }}>
-              <ResponsiveContainer>
-                <LineChart data={priceData}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
-                  <Line
-                    type="monotone"
-                    dataKey="price"
-                    stroke="#0d6efd"
-                    strokeWidth={2}
-                    dot={false}
-                  />
-                </LineChart>
-              </ResponsiveContainer>
-            </div>
-          </>
-        )}
+		const enabled = latesPrices.map(({ date }) => dateKeep_dd_mm_yy(date));
+		setDisabledDates(allDates.filter((d) => !enabled.includes(d.getTime())));
+	}, [data]);
 
-        {!activeTrip && (
-          <p className="text-muted mb-0">
-            Select a trip in the list to inspect its price history and cheapest current price.
-          </p>
-        )}
-      </Card.Body>
-    </Card>
-  );
+	if (pricesByDate.size === 0) return <Loader />;
+
+	return (
+		<Stack>
+			<div className="d-flex justify-content-between align-items-start">
+				<div>
+					<div className="fw-semibold">
+						{trip.airline}: {trip.fromAirport} → {trip.toAirport}
+					</div>
+					<div className="small text-muted">
+						Out: {trip.fromEarliest.toDateString()} – {trip.fromLatest.toDateString()}
+						<br />
+						Return: {trip.toEarliest.toDateString()} – {trip.toLatest.toDateString()}
+					</div>
+				</div>
+			</div>
+			<InfiniteCalendar
+				Component={CalendarWithRange}
+				pricesByDate={pricesByDate}
+				displayOptions={{ showHeader: false }}
+				height={innerHeight * 0.8}
+				disabledDates={disabledDates}
+				width={innerWidth * 0.9}
+				locale={{ headerFormat: "MMM Do" }}
+				min={trip.fromEarliest}
+				minDate={trip.fromEarliest}
+				maxDate={trip.fromLatest}
+				max={trip.fromLatest}
+			/>
+		</Stack>
+	);
 }
 
+function getDates(from: Date, to: Date) {
+	const dates = [];
 
+	let start = new Date(from);
+	while (start < to) {
+		dates.push(new Date(start));
+		start.setDate(start.getDate() + 1);
+	}
+
+	return dates;
+}
+
+function getLatestPrices(data: PricePoint[]) {
+	let latestCreateDate = dateKeep_dd_mm_yy(data.at(-1)!.createdAt);
+
+	for (const { createdAt } of data) {
+		const date = dateKeep_dd_mm_yy(createdAt);
+		if (date === latestCreateDate) {
+			latestCreateDate = date;
+		}
+	}
+
+	const dates = [];
+	for (const date of data) {
+		if (dateKeep_dd_mm_yy(date.createdAt) === latestCreateDate) {
+			dates.push(date);
+		}
+	}
+	return dates;
+}
+
+function dateKeep_dd_mm_yy(date: Date) {
+	return (
+		date.getTime() -
+		date.getMilliseconds() -
+		date.getSeconds() * 1000 -
+		date.getMinutes() * 60_000 -
+		date.getHours() * 3_600_000
+	);
+}

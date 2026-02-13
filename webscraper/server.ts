@@ -1,11 +1,5 @@
-import {
-	createTrip,
-	deleteTrip,
-	getDistinctAirlines as getAirlines,
-	getPriceHistoryForTrip,
-	listTrips,
-	setUpDb,
-} from "./db";
+import { createTrip, deleteTrip, getPriceHistoryForTrip, listTrips, setUpDb } from "./db";
+import { AIRPORTS } from "./utils";
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -56,19 +50,19 @@ async function handleCreateTrip(req: Request) {
 		return badRequest("airline, fromAirport and toAirport are required");
 	}
 
-	const fromEarliestStr = parseDateOnly(fromEarliest);
-	const fromLatestStr = parseDateOnly(fromLatest);
-	const toEarliestStr = parseDateOnly(toEarliest);
-	const toLatestStr = parseDateOnly(toLatest);
+	const fromEarliestDate = new Date(fromEarliest);
+	const fromLatestDate = new Date(fromLatest);
+	const toEarliestDate = new Date(toEarliest);
+	const toLatestDate = new Date(toLatest);
 
-	if (!fromEarliestStr || !fromLatestStr || !toEarliestStr || !toLatestStr) {
-		return badRequest("fromEarliest, fromLatest, toEarliest and toLatest must be YYYY-MM-DD");
+	if (
+		!fromEarliestDate.getTime() ||
+		!fromLatestDate.getTime() ||
+		!toEarliestDate.getTime() ||
+		!toLatestDate.getTime()
+	) {
+		return badRequest("fromEarliest, fromLatest, toEarliest and toLatest must be valid JS dates");
 	}
-
-	const fromEarliestDate = dateFromISO(fromEarliestStr);
-	const fromLatestDate = dateFromISO(fromLatestStr);
-	const toEarliestDate = dateFromISO(toEarliestStr);
-	const toLatestDate = dateFromISO(toLatestStr);
 
 	// Business rule: earliest return at least a day after earliest departure
 	const minReturn = new Date(fromEarliestDate);
@@ -89,10 +83,10 @@ async function handleCreateTrip(req: Request) {
 		airline,
 		fromAirport,
 		toAirport,
-		fromEarliest: fromEarliestStr,
-		fromLatest: fromLatestStr,
-		toEarliest: toEarliestStr,
-		toLatest: toLatestStr,
+		fromEarliest: fromEarliestDate,
+		fromLatest: fromLatestDate,
+		toEarliest: toEarliestDate,
+		toLatest: toLatestDate,
 	});
 
 	return jsonResponse(trip.id, { status: 201 });
@@ -100,20 +94,16 @@ async function handleCreateTrip(req: Request) {
 
 async function handleDeleteTrip(id: string | undefined) {
 	if (!id) return badRequest("Trip id is required", 404);
-	const numericId = Number(id);
-	if (!Number.isFinite(numericId)) return badRequest("Invalid trip id");
 
-	await deleteTrip(numericId);
+	await deleteTrip(id);
 	return new Response(null, { status: 204, headers: corsHeaders });
 }
 
 async function handleGetTripPrices(id: string | null) {
 	if (!id) return badRequest("Trip id is required", 404);
-	const numericId = Number(id);
-	if (!Number.isFinite(numericId)) return badRequest("Invalid trip id");
 
 	try {
-		const result = await getPriceHistoryForTrip(numericId);
+		const result = await getPriceHistoryForTrip(id);
 		return jsonResponse(result);
 	} catch (err) {
 		return badRequest((err as Error).message, 404);
@@ -135,32 +125,35 @@ const server = Bun.serve({
 		}
 
 		try {
+			if (pathname.startsWith("/trips/")) {
+				if (pathname.endsWith("/prices") && req.method === "GET") {
+					const parts = pathname.split("/");
+					// /trips/:id/prices
+					const id = parts.length >= 4 ? parts[2] : null;
+					return handleGetTripPrices(id ?? null);
+				} else if (req.method === "DELETE") {
+					return handleDeleteTrip(pathname.split("/")[2]);
+				}
+			}
+
 			switch (pathname) {
 				case "/airlines":
-					return jsonResponse(await getAirlines());
+					// return jsonResponse(await getAirlines());
+					return jsonResponse(["Ryanair"]);
 				case "/airports":
-					break;
+					return jsonResponse(AIRPORTS.map(({ name }) => name));
 				case "/trips":
 					switch (req.method) {
 						case "GET":
 							return jsonResponse(await listTrips());
 						case "POST":
 							return handleCreateTrip(req);
-						case "DELETE":
-							return handleDeleteTrip(pathname.split("/")[2]);
 						default:
 							break;
 					}
 					break;
 				default:
 					break;
-			}
-
-			if (pathname.startsWith("/trips/") && pathname.endsWith("/prices") && req.method === "GET") {
-				const parts = pathname.split("/");
-				// /trips/:id/prices
-				const id = parts.length >= 4 ? parts[2] : null;
-				return handleGetTripPrices(id ?? null);
 			}
 
 			return new Response("Not found", { status: 404, headers: corsHeaders });

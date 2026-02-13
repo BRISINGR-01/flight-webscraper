@@ -36,10 +36,10 @@ Trip.init(
 		airline: { type: DataTypes.STRING, allowNull: false },
 		fromAirport: { type: DataTypes.STRING, allowNull: false },
 		toAirport: { type: DataTypes.STRING, allowNull: false },
-		fromEarliest: { type: DataTypes.DATEONLY, allowNull: false },
-		fromLatest: { type: DataTypes.DATEONLY, allowNull: false },
-		toEarliest: { type: DataTypes.DATEONLY, allowNull: false },
-		toLatest: { type: DataTypes.DATEONLY, allowNull: false },
+		fromEarliest: { type: DataTypes.DATE, allowNull: false },
+		fromLatest: { type: DataTypes.DATE, allowNull: false },
+		toEarliest: { type: DataTypes.DATE, allowNull: false },
+		toLatest: { type: DataTypes.DATE, allowNull: false },
 	},
 	{
 		sequelize,
@@ -86,10 +86,10 @@ export type TripAttributes = {
 	airline: string;
 	fromAirport: string;
 	toAirport: string;
-	fromEarliest: string;
-	fromLatest: string;
-	toEarliest: string;
-	toLatest: string;
+	fromEarliest: Date;
+	fromLatest: Date;
+	toEarliest: Date;
+	toLatest: Date;
 };
 
 export async function listTrips(): Promise<TripAttributes[]> {
@@ -98,55 +98,57 @@ export async function listTrips(): Promise<TripAttributes[]> {
 }
 
 export async function createTrip(attrs: Omit<TripAttributes, "id">) {
-	const created = await Trip.create(attrs as any);
-	return created.toJSON() as TripAttributes;
+	const created = await Trip.create(attrs);
+	return created.dataValues.id;
 }
 
-export async function deleteTrip(id: number) {
+export async function deleteTrip(id: string) {
 	await Trip.destroy({ where: { id } });
 }
 
-export async function getPriceHistoryForTrip(tripId: number) {
+export async function getPriceHistoryForTrip(tripId: string) {
 	const trip = await Trip.findByPk(tripId);
 	if (!trip) {
 		throw new Error("Trip not found");
 	}
 
-	const t: any = trip;
-
-	// Use full window from earliest outbound to latest return
-	const startDate = t.fromEarliest;
-	const endDate = t.toLatest;
-
-	const prices = await DatePrice.findAll({
+	const t: TripAttributes = trip.dataValues;
+	const pricesDepart = await DatePrice.findAll({
 		where: {
 			airline: t.airline,
 			fromAirport: t.fromAirport,
 			toAirport: t.toAirport,
 			date: {
-				[Op.between]: [startDate, endDate],
+				[Op.between]: [t.fromEarliest, t.fromLatest],
 			},
 		},
-		order: [["date", "ASC"]],
+		order: [["createdAt", "ASC"]],
+	});
+	const pricesReturn = await DatePrice.findAll({
+		where: {
+			airline: t.airline,
+			fromAirport: t.toAirport,
+			toAirport: t.fromAirport,
+			date: {
+				[Op.between]: [t.toEarliest, t.toLatest],
+			},
+		},
+		order: [["createdAt", "ASC"]],
 	});
 
-	const history = prices.map((p: any) => ({
-		date: p.get("date") as string,
-		price: p.get("price") as number,
-	}));
-
-	const today = new Date().toISOString().slice(0, 10);
-	const futureOrToday = history.filter((h) => h.date >= today);
-	const cheapestCurrent =
-		futureOrToday.length > 0
-			? futureOrToday.reduce((min, cur) => (cur.price < min!.price ? cur : min), futureOrToday[0])
-			: null;
-
 	return {
-		history,
-		cheapestCurrent,
+		pricesDepart: pricesDepart.map((p: DatePrice) => ({
+			createdAt: p.dataValues.createdAt,
+			date: p.dataValues.date,
+			price: p.dataValues.price,
+		})),
+		pricesReturn: pricesReturn.map((p: DatePrice) => ({
+			createdAt: p.dataValues.createdAt,
+			date: p.dataValues.date,
+			price: p.dataValues.price,
+		})),
+		trip,
 	};
 }
 
 export { DatePrice, sequelize, Trip };
-

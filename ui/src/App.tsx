@@ -7,18 +7,16 @@ import { TripManagerPage } from "./pages/TripManagerPage";
 const airline = "Ryanair";
 
 function App() {
-  return (
-    <Container fluid className="min-vh-100 py-4 bg-light">
-      <Routes>
-        <Route path="/trips" element={<TripManagerPage />} />
-        <Route path="/trips/new" element={<TripCreatorPage selectedAirline={airline} />} />
-        <Route path="/trips/:id" element={<TripInspectorPage />} />
-        <Route path="/" element={<Navigate to="/trips" replace />} />
-      </Routes>
-    </Container>
-  );
+	return (
+		<Container fluid className="vh-100 py-2">
+			<Routes>
+				<Route path="/trips" element={<TripManagerPage />} />
+				<Route path="/trips/new" element={<TripCreatorPage selectedAirline={airline} />} />
+				<Route path="/trips/:id" element={<TripInspectorPage />} />
+				<Route path="/" element={<Navigate to="/trips" replace />} />
+			</Routes>
+		</Container>
+	);
 }
 
 export default App;
-
-

@@ -119,3 +119,8 @@ export type CollectedData = {
 		price: number;
 	}[];
 }[];
+
+export const AIRPORTS = [
+	{ code: "SOF", name: "Sofia" },
+	{ code: "EIN", name: "Eindhoven" },
+];

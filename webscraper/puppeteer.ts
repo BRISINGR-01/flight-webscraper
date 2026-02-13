@@ -16,6 +16,8 @@ export async function disposePuppeteer() {
 	await browser.close();
 }
 
+let i = 0;
+
 export async function extractMonthData(ctx: Ctx, month: ElementHandle<Element>) {
 	try {
 		await ctx.page.waitForSelector(".priced-date__date");

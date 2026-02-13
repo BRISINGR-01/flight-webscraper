@@ -1,170 +1,178 @@
-import { Alert, Badge, Button, Card, Col, Form, Row, Spinner } from "react-bootstrap";
+import { useState } from "react";
+import { Button, Col, Row, Stack } from "react-bootstrap";
+import { AirportSelector } from "./AirportSelector";
+import { DateSelector } from "./DateSelector";
 
 type TripCreatorProps = {
-  fromAirport: string;
-  toAirport: string;
-  fromEarliest: string;
-  fromLatest: string;
-  toEarliest: string;
-  toLatest: string;
-  formError: string | null;
-  loading: boolean;
-  onChangeFromAirport: (value: string) => void;
-  onChangeToAirport: (value: string) => void;
-  onChangeFromEarliest: (value: string) => void;
-  onChangeFromLatest: (value: string) => void;
-  onChangeToEarliest: (value: string) => void;
-  onChangeToLatest: (value: string) => void;
-  onSubmit: (e: React.FormEvent) => void;
-  onBack: () => void;
+	airports: string[];
+	onSubmit: (data: {
+		airports: { from: string; to: string };
+		dates: {
+			from: { earliest: Date; latest: Date };
+			to: { earliest: Date; latest: Date };
+		};
+	}) => void;
+	onBack: () => void;
 };
 
-export function TripCreator({
-  fromAirport,
-  toAirport,
-  fromEarliest,
-  fromLatest,
-  toEarliest,
-  toLatest,
-  formError,
-  loading,
-  onChangeFromAirport,
-  onChangeToAirport,
-  onChangeFromEarliest,
-  onChangeFromLatest,
-  onChangeToEarliest,
-  onChangeToLatest,
-  onSubmit,
-  onBack,
-}: TripCreatorProps) {
-  return (
-    <Row className="justify-content-center">
-      <Col lg={7}>
-        <Card className="shadow-sm">
-          <Card.Body>
-            <div className="d-flex justify-content-between align-items-center mb-3">
-              <div>
-                <Card.Title className="mb-0">Create trip</Card.Title>
-                <small className="text-muted">
-                  Choose route and date ranges on a single, focused page.
-                </small>
-              </div>
-              <Button variant="outline-secondary" size="sm" onClick={onBack}>
-                Back to trips
-              </Button>
-            </div>
+export function TripCreator(props: TripCreatorProps) {
+	const [airports, setAirports] = useState<{ from: string; to: string } | null>({
+		from: "SOF",
+		to: "EIN",
+	});
+	const [dates, setDates] = useState<{
+		from: { earliest: Date; latest: Date } | null;
+		to: { earliest: Date; latest: Date } | null;
+	}>({ from: null, to: null });
 
-            <Form onSubmit={onSubmit}>
-              <Row className="mb-3">
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>From airport</Form.Label>
-                    <Form.Control
-                      value={fromAirport}
-                      onChange={(e) => onChangeFromAirport(e.target.value)}
-                      placeholder="AMS"
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group>
-                    <Form.Label>To airport</Form.Label>
-                    <Form.Control
-                      value={toAirport}
-                      onChange={(e) => onChangeToAirport(e.target.value)}
-                      placeholder="DUB"
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+	const pageContent: JSX.Element[] = [];
 
-              <Row className="mb-2">
-                <Col>
-                  <h6 className="text-uppercase text-muted small mb-2">Departure window</h6>
-                </Col>
-              </Row>
+	if (!airports) {
+		return (
+			<ContentWrapper onBack={props.onBack}>
+				<AirportSelector key="airports" airports={props.airports} onSubmit={(from, to) => setAirports({ from, to })} />
+			</ContentWrapper>
+		);
+	}
 
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Earliest departure</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={fromEarliest}
-                      onChange={(e) => onChangeFromEarliest(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Latest departure</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={fromLatest}
-                      onChange={(e) => onChangeFromLatest(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+	pageContent.push(
+		<AirportsDisplay key="airports" from={airports.from} to={airports.to} onClear={() => setAirports(null)} />,
+	);
 
-              <Row className="mb-2">
-                <Col>
-                  <h6 className="text-uppercase text-muted small mb-2">
-                    Return window{" "}
-                    <Badge bg="light" text="secondary">
-                      At least 1 day after departure
-                    </Badge>
-                  </h6>
-                </Col>
-              </Row>
+	if (!dates.from) {
+		return (
+			<ContentWrapper onBack={props.onBack}>
+				{pageContent}
+				<DateSelector
+					key="from-selector"
+					onSubmit={(earliest, latest) => {
+						setDates((prev) => ({ ...prev, from: { earliest, latest } }));
+					}}
+				/>
+			</ContentWrapper>
+		);
+	}
 
-              <Row>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Earliest return</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={toEarliest}
-                      onChange={(e) => onChangeToEarliest(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-                <Col md={6}>
-                  <Form.Group className="mb-3">
-                    <Form.Label>Latest return</Form.Label>
-                    <Form.Control
-                      type="date"
-                      value={toLatest}
-                      onChange={(e) => onChangeToLatest(e.target.value)}
-                    />
-                  </Form.Group>
-                </Col>
-              </Row>
+	pageContent.push(
+		<DatesDisplay
+			key="dates-d"
+			isDeparture
+			from={dates.from.earliest}
+			to={dates.from.latest}
+			onClear={() => setDates(() => ({ to: null, from: null }))}
+		/>,
+	);
 
-              {formError && (
-                <Alert variant="danger" className="mb-3">
-                  {formError}
-                </Alert>
-              )}
+	if (!dates.to) {
+		return (
+			<ContentWrapper onBack={props.onBack}>
+				{pageContent}
+				<DateSelector
+					key="to-selector"
+					onSubmit={(earliest, latest) => setDates((prev) => ({ ...prev, to: { earliest, latest } }))}
+					after={dates.from.earliest}
+				/>
+			</ContentWrapper>
+		);
+	}
 
-              <div className="d-flex justify-content-end">
-                <Button type="submit" disabled={loading}>
-                  {loading ? (
-                    <>
-                      <Spinner animation="border" size="sm" role="status" className="me-2" />
-                      Saving...
-                    </>
-                  ) : (
-                    "Save trip"
-                  )}
-                </Button>
-              </div>
-            </Form>
-          </Card.Body>
-        </Card>
-      </Col>
-    </Row>
-  );
+	pageContent.push(
+		<DatesDisplay
+			key="dates-r"
+			from={dates.to.earliest}
+			to={dates.to.latest}
+			onClear={() =>
+				setDates((prev) => ({
+					...prev,
+					to: null,
+				}))
+			}
+		/>,
+	);
+
+	return (
+		<ContentWrapper onBack={props.onBack}>
+			{pageContent}
+			<Button
+				onClick={() =>
+					props.onSubmit({
+						airports,
+						dates: dates as {
+							from: { earliest: Date; latest: Date };
+							to: { earliest: Date; latest: Date };
+						},
+					})
+				}
+				size="lg"
+			>
+				Create trip
+			</Button>
+		</ContentWrapper>
+	);
 }
 
+function ContentWrapper(props: { onBack: () => void; children: JSX.Element | JSX.Element[] | any }) {
+	return (
+		<>
+			<Button variant="secondary" onClick={props.onBack} className="top-0 mt-3 z-2 position-fixed">
+				← Back
+			</Button>
+			<Row>
+				<Col lg={6}>
+					<Stack className="align-items-center">{props.children}</Stack>
+				</Col>
+			</Row>
+		</>
+	);
+}
 
+function AirportsDisplay(props: { from: string; to: string; onClear: () => void }) {
+	return (
+		<Stack
+			direction="horizontal"
+			key="airports"
+			className="mb-3 d-flex align-items-center justify-content-between p-3 bg-light rounded w-100"
+		>
+			<div></div>
+			<Stack direction="horizontal" className="align-items-center" gap={3}>
+				<div className="text-center">
+					<small className="text-muted d-block">From</small>
+					<strong className="fs-5">{props.from}</strong>
+				</div>
+				<span className="text-muted">→</span>
+				<div className="text-center">
+					<small className="text-muted d-block">To</small>
+					<strong className="fs-5">{props.to}</strong>
+				</div>
+			</Stack>
+			<Button variant="outline-secondary" size="sm" onClick={props.onClear}>
+				Change
+			</Button>
+		</Stack>
+	);
+}
+
+function DatesDisplay(props: { isDeparture?: boolean; from: Date; to: Date; onClear: () => void }) {
+	return (
+		<Col xs={12} md={7}>
+			<Stack
+				direction="horizontal"
+				className="mb-3 d-flex align-items-center justify-content-between p-3 bg-light rounded w-100"
+			>
+				<div></div>
+
+				<Stack className="flex-grow-0">
+					<h6 className="mb-0">{props.isDeparture ? "Departure" : "Returning"} Dates</h6>
+					<Stack direction="horizontal" className="justify-content-cen ter" gap={3}>
+						<div className="fw-semibold">
+							{props.from.toLocaleDateString()} → {props.to.toLocaleDateString()}
+						</div>
+					</Stack>
+				</Stack>
+				<Button variant="outline-secondary" size="sm" onClick={props.onClear}>
+					Change
+				</Button>
+			</Stack>
+		</Col>
+	);
+}
