@@ -5,6 +5,7 @@ import "react-infinite-calendar/styles.css"; // Make sure to import the default 
 import type { PricePoint, Trip } from "../types";
 import { withPrices } from "./CalendarWithPrices";
 import { Loader } from "./Loader";
+import PriceChart from "./PricesChart";
 
 const CalendarWithRange = withPrices(Calendar);
 
@@ -19,8 +20,10 @@ export function TripInspector({
 }) {
 	const [pricesByDate, setPricesByDate] = useState<Map<string, number>>(new Map());
 	const [showDepart, setShowDepart] = useState(true);
-	const data = showDepart ? pricesDepart : pricesReturn;
 	const [disabledDates, setDisabledDates] = useState<Date[]>([]);
+	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+
+	const data = showDepart ? pricesDepart : pricesReturn;
 
 	useEffect(() => {
 		const max = new Date();
@@ -36,8 +39,8 @@ export function TripInspector({
 		const latesPrices = getLatestPrices(data);
 		setPricesByDate(new Map(latesPrices.map((p) => [p.date.toDateString(), p.price])));
 
-		const enabled = latesPrices.map(({ date }) => dateKeep_dd_mm_yy(date));
-		setDisabledDates(allDates.filter((d) => !enabled.includes(d.getTime())));
+		const enabled = latesPrices.map(({ date }) => date.toDateString());
+		setDisabledDates(allDates.filter((d) => !enabled.includes(d.toDateString())));
 	}, [data]);
 
 	if (pricesByDate.size === 0) return <Loader />;
@@ -56,19 +59,23 @@ export function TripInspector({
 					</div>
 				</div>
 			</div>
-			<InfiniteCalendar
-				Component={CalendarWithRange}
-				pricesByDate={pricesByDate}
-				displayOptions={{ showHeader: false }}
-				height={innerHeight * 0.8}
-				disabledDates={disabledDates}
-				width={innerWidth * 0.9}
-				locale={{ headerFormat: "MMM Do" }}
-				min={trip.fromEarliest}
-				minDate={trip.fromEarliest}
-				maxDate={trip.fromLatest}
-				max={trip.fromLatest}
-			/>
+			<Stack className="flex-lg-row">
+				<InfiniteCalendar
+					Component={CalendarWithRange}
+					pricesByDate={pricesByDate}
+					onSelect={setSelectedDate}
+					displayOptions={{ showHeader: false }}
+					// height={innerHeight * 0.8}
+					// width={innerWidth * 0.9}
+					disabledDates={disabledDates}
+					locale={{ headerFormat: "MMM Do" }}
+					min={trip.fromEarliest}
+					minDate={trip.fromEarliest}
+					maxDate={trip.fromLatest}
+					max={trip.fromLatest}
+				/>
+				{selectedDate && <PriceChart date={selectedDate} data={data} />}
+			</Stack>
 		</Stack>
 	);
 }
@@ -86,10 +93,10 @@ function getDates(from: Date, to: Date) {
 }
 
 function getLatestPrices(data: PricePoint[]) {
-	let latestCreateDate = dateKeep_dd_mm_yy(data.at(-1)!.createdAt);
+	let latestCreateDate = data.at(-1)!.createdAt.toDateString();
 
 	for (const { createdAt } of data) {
-		const date = dateKeep_dd_mm_yy(createdAt);
+		const date = createdAt.toDateString();
 		if (date === latestCreateDate) {
 			latestCreateDate = date;
 		}
@@ -97,19 +104,9 @@ function getLatestPrices(data: PricePoint[]) {
 
 	const dates = [];
 	for (const date of data) {
-		if (dateKeep_dd_mm_yy(date.createdAt) === latestCreateDate) {
+		if (date.createdAt.toDateString() === latestCreateDate) {
 			dates.push(date);
 		}
 	}
 	return dates;
-}
-
-function dateKeep_dd_mm_yy(date: Date) {
-	return (
-		date.getTime() -
-		date.getMilliseconds() -
-		date.getSeconds() * 1000 -
-		date.getMinutes() * 60_000 -
-		date.getHours() * 3_600_000
-	);
 }

@@ -54,7 +54,6 @@ export const withPrices = compose(
 	})),
 	withState("scrollDate", "setScrollDate", (props: any) => props.selected || new Date()),
 	withProps(({ onSelect, setScrollDate, ...props }: any) => {
-		console.log(props);
 		const selected = sanitizeDate(props.selected, props);
 
 		return {
