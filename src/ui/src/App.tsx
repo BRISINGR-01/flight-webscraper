@@ -15,7 +15,7 @@ function App() {
           path="/trips/new"
           element={<TripCreatorPage selectedAirline={airline} />}
         />
-        <Route path="/trips/:id" element={<TripInspectorPage />} />
+        <Route path="/trips/:id/prices" element={<TripInspectorPage />} />
         <Route path="/" element={<Navigate to="/trips" replace />} />
       </Routes>
     </Container>

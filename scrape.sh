@@ -1,5 +1,5 @@
 #! /bin/bash
 
 cd "$(dirname "$0")"
-cd ./webscraper
-# bun run script.ts
+cd ./src
+bun run collectData.ts

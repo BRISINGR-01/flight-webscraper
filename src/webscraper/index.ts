@@ -19,9 +19,11 @@ import {
   enumerateMonths,
   MONTHS_LABELS,
   type CollectedData,
+  firstOfMonth,
+  lastOfMonth,
 } from "../data/utils.ts";
 
-async function collectData(
+export async function collectData(
   airline: Airline,
   departureFlight: FlightCtx,
   arrivalFlight: FlightCtx,
@@ -29,6 +31,11 @@ async function collectData(
   if (arrivalFlight.from.getTime() < departureFlight.from.getTime()) {
     throw new Error("Arrival cannot be earlier than departure");
   }
+
+  arrivalFlight.from = firstOfMonth(arrivalFlight.from);
+  arrivalFlight.to = lastOfMonth(arrivalFlight.to);
+  departureFlight.from = firstOfMonth(departureFlight.from);
+  departureFlight.to = lastOfMonth(departureFlight.to);
 
   logger.info(
     `Collecting data for ${airline} flights from: ` +
@@ -66,20 +73,20 @@ async function collectData(
   logger.info("Saved return data");
   // Departure: <from.earliest> | Return: <to.latest>
 
-  logger.info("Extracting departure data");
-  await saveData(
-    await extractData(ctx, departureFlight, departCalendar),
-    ctx,
-    departureFlight.airport,
-    arrivalFlight.airport,
-  );
-  logger.info("Saved departure data");
+  // logger.info("Extracting departure data");
+  // await saveData(
+  //   await extractData(ctx, departureFlight, departCalendar),
+  //   ctx,
+  //   departureFlight.airport,
+  //   arrivalFlight.airport,
+  // );
+  // logger.info("Saved departure data");
   // Departure: <from.latest> | Return: <to.latest>
 
   await disposePuppeteer();
 }
 
-async function extractData(
+export async function extractData(
   ctx: Ctx,
   flight: FlightCtx,
   calendar: ElementHandle<Element>,
@@ -102,12 +109,14 @@ async function extractData(
   return data;
 }
 
-async function saveData(
+export async function saveData(
   data: CollectedData,
   ctx: Ctx,
   fromAirport: string,
   toAirport: string,
 ) {
+  // console.log(data);
+  // return;
   for (const { month, year, content } of data) {
     for (const { date, price } of content) {
       await save(
@@ -121,13 +130,7 @@ async function saveData(
   }
 }
 
-collectData(
-  Airline.Ryanair,
-  createFlight("EIN", new Date(2026, 11, 10), new Date(2026, 11, 27)),
-  createFlight("SOF", new Date(2027, 0, 1), new Date(2027, 0, 15)),
-);
-
-function createFlight(airport: string, from: Date, to: Date): FlightCtx {
+export function createFlight(airport: string, from: Date, to: Date): FlightCtx {
   const now = new Date();
   const nowMS = now.getTime();
 

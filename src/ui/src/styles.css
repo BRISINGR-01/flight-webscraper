@@ -1,0 +1,21 @@
+.prices-calendar.rdp-root {
+	--rdp-day-height: 48px;
+	--rdp-day-width: 44px;
+	--rdp-day_button-height: 46px;
+	--rdp-day_button-width: 44px;
+	--rdp-day_button-border-radius: 8px;
+}
+
+.prices-calendar .rdp-price {
+	font-size: 0.68rem;
+	line-height: 1;
+	color: #053b69;
+}
+
+.prices-calendar .rdp-price-depart {
+	color: #053b69;
+}
+
+.prices-calendar .rdp-price-return {
+	color: #e03131;
+}

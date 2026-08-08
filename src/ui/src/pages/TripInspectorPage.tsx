@@ -1,35 +1,63 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Col, Row } from "react-bootstrap";
 import { useNavigate, useParams } from "react-router-dom";
+import { ErrorPage } from "../components/ErrorPage";
 import { Loader } from "../components/Loader";
 import { TripInspector } from "../components/TripInspector";
-import type { PricePoint, Trip } from "../types";
-import { API } from "../utils";
+import type { PricePoint, TripCtx } from "../types";
+import { API, getErrorMessage } from "../utils";
 
 export function TripInspectorPage() {
-	const { id } = useParams<{ id: string }>();
-	const [trip, setTrip] = useState<Trip | null>(null);
-	const [pricesReturn, setPricesReturn] = useState<PricePoint[]>([]);
-	const [pricesDepart, setPricesDepart] = useState<PricePoint[]>([]);
-	const navigate = useNavigate();
+  const { id } = useParams<{ id: string }>();
+  const [trip, setTrip] = useState<TripCtx | null>(null);
+  const [pricesReturn, setPricesReturn] = useState<PricePoint[]>([]);
+  const [pricesDepart, setPricesDepart] = useState<PricePoint[]>([]);
+  const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
 
-	useEffect(() => {
-		if (!id) return navigate("/trips");
+  const load = useCallback(async () => {
+    if (!id) return;
+    setError(null);
+    setTrip(null);
+    try {
+      const data = await API.getTrip(id);
+      console.log(data);
 
-		API.getTrip(id).then(({ pricesDepart, pricesReturn, trip }) => {
-			setTrip(trip);
-			setPricesReturn(pricesReturn);
-			setPricesDepart(pricesDepart);
-		});
-	}, []);
+      setTrip(data.trip);
+      setPricesReturn(data.pricesReturn);
+      setPricesDepart(data.pricesDepart);
+    } catch (e) {
+      setError(getErrorMessage(e));
+    }
+  }, [id]);
 
-	if (!trip) return <Loader />;
+  useEffect(() => {
+    if (!id) {
+      navigate("/trips");
+      return;
+    }
+    load();
+  }, [id, load, navigate]);
 
-	return (
-		<Row className="m-4">
-			<Col>
-				<TripInspector trip={trip} pricesReturn={pricesReturn} pricesDepart={pricesDepart} />
-			</Col>
-		</Row>
-	);
+  if (error)
+    return (
+      <ErrorPage
+        message={error}
+        onRetry={load}
+        onBack={() => navigate("/trips")}
+      />
+    );
+  if (!trip) return <Loader />;
+
+  return (
+    <Row className="m-4">
+      <Col>
+        <TripInspector
+          trip={trip}
+          pricesReturn={pricesReturn}
+          pricesDepart={pricesDepart}
+        />
+      </Col>
+    </Row>
+  );
 }

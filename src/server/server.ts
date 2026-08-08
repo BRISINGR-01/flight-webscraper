@@ -4,8 +4,12 @@ import {
   getPriceHistoryForTrip,
   listTrips,
   setUpDb,
+  Trip,
+  TripAttributes,
 } from "../data/db";
-import { AIRPORTS } from "../data/utils";
+import { Airline, AIRPORTS } from "../data/utils";
+import { TripCtx } from "../ui/src/types";
+import { collectData } from "../webscraper";
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -43,69 +47,36 @@ function dateFromISO(dateOnly: string): Date {
 }
 
 async function handleCreateTrip(req: Request) {
-  let body: any;
+  let body: TripCtx;
   try {
     body = await req.json();
   } catch {
     return badRequest("Invalid JSON body");
   }
 
-  const {
-    airline,
-    fromAirport,
-    toAirport,
-    fromEarliest,
-    fromLatest,
-    toEarliest,
-    toLatest,
-  } = body ?? {};
-
-  if (!airline || !fromAirport || !toAirport) {
-    return badRequest("airline, fromAirport and toAirport are required");
-  }
-
-  const fromEarliestDate = new Date(fromEarliest);
-  const fromLatestDate = new Date(fromLatest);
-  const toEarliestDate = new Date(toEarliest);
-  const toLatestDate = new Date(toLatest);
-
-  if (
-    !fromEarliestDate.getTime() ||
-    !fromLatestDate.getTime() ||
-    !toEarliestDate.getTime() ||
-    !toLatestDate.getTime()
-  ) {
-    return badRequest(
-      "fromEarliest, fromLatest, toEarliest and toLatest must be valid JS dates",
-    );
-  }
+  body.arrive.fromDate = new Date(body.arrive.fromDate);
+  body.arrive.toDate = new Date(body.arrive.toDate);
+  body.depart.fromDate = new Date(body.depart.fromDate);
+  body.depart.toDate = new Date(body.depart.toDate);
 
   // Business rule: earliest return at least a day after earliest departure
-  const minReturn = new Date(fromEarliestDate);
-  minReturn.setDate(fromEarliestDate.getDate() + 1);
-  if (toEarliestDate < minReturn) {
+  const minReturn = new Date(body.depart.fromDate);
+  minReturn.setDate(minReturn.getDate() + 1);
+  if (body.arrive.fromDate < minReturn) {
     return badRequest(
       "Earliest return must be at least one day after earliest departure",
     );
   }
 
   // Basic range sanity checks
-  if (fromLatestDate < fromEarliestDate) {
+  if (body.arrive.toDate < body.arrive.fromDate) {
     return badRequest("fromLatest must not be before fromEarliest");
   }
-  if (toLatestDate < toEarliestDate) {
+  if (body.depart.toDate < body.depart.fromDate) {
     return badRequest("toLatest must not be before toEarliest");
   }
 
-  const trip = await createTrip({
-    airline,
-    fromAirport,
-    toAirport,
-    fromEarliest: fromEarliestDate,
-    fromLatest: fromLatestDate,
-    toEarliest: toEarliestDate,
-    toLatest: toLatestDate,
-  });
+  const trip = await createTrip(body);
 
   return jsonResponse(trip.id, { status: 201 });
 }
@@ -121,7 +92,29 @@ async function handleGetTripPrices(id: string | null) {
   if (!id) return badRequest("Trip id is required", 404);
 
   try {
-    const result = await getPriceHistoryForTrip(id);
+    let result = await getPriceHistoryForTrip(id);
+    if (result.pricesDepart.length === 0) {
+      const trip = await Trip.findByPk(id);
+      if (!trip) throw new Error("Trip not found");
+
+      const t: TripAttributes = trip.dataValues;
+
+      await collectData(
+        t.airline as Airline,
+        {
+          airport: t.fromAirport,
+          from: new Date(t.fromEarliest),
+          to: new Date(t.fromLatest),
+        },
+        {
+          airport: t.toAirport,
+          from: new Date(t.toEarliest),
+          to: new Date(t.toLatest),
+        },
+      );
+
+      result = await getPriceHistoryForTrip(id);
+    }
     return jsonResponse(result);
   } catch (err) {
     return badRequest((err as Error).message, 404);
@@ -143,29 +136,28 @@ const server = Bun.serve({
     }
 
     try {
-      if (pathname.startsWith("/trips/")) {
-        if (pathname.endsWith("/prices") && req.method === "GET") {
-          const parts = pathname.split("/");
-          // /trips/:id/prices
-          const id = parts.length >= 4 ? parts[2] : null;
-          return handleGetTripPrices(id ?? null);
-        } else if (req.method === "DELETE") {
-          return handleDeleteTrip(pathname.split("/")[2]);
-        }
-      }
-
-      switch (pathname) {
-        case "/airlines":
+      switch (pathname.split("/")[1]) {
+        case "airlines":
           // return jsonResponse(await getAirlines());
           return jsonResponse(["Ryanair"]);
-        case "/airports":
+        case "airports":
           return jsonResponse(AIRPORTS.map(({ name }) => name));
-        case "/trips":
+        case "trips":
           switch (req.method) {
             case "GET":
+              if (pathname.endsWith("/prices")) {
+                const parts = pathname.split("/");
+                // /trips/:id/prices
+                const id = parts.length >= 4 ? parts[2] : null;
+                return handleGetTripPrices(id ?? null);
+              }
+
               return jsonResponse(await listTrips());
             case "POST":
               return handleCreateTrip(req);
+            case "DELETE":
+              return handleDeleteTrip(pathname.split("/")[2]);
+
             default:
               break;
           }

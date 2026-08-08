@@ -20,9 +20,11 @@ export enum DateFormatters {
 }
 
 export function formatDate(date: Date, format: DateFormatters) {
+  const pad = (n: number) => (n < 10 ? `0${n}` : n.toString());
+
   switch (format) {
     case DateFormatters.Ryanair:
-      return `${date.getFullYear()}-${date.getMonth() + 1}-${date.getDate()}`;
+      return `${pad(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
     case DateFormatters.Human:
     default:
       return `${date.getDate()} ${getMonth(date)} ${date.getFullYear()}`;
@@ -120,3 +122,11 @@ export const AIRPORTS = [
   { code: "SOF", name: "Sofia" },
   { code: "EIN", name: "Eindhoven" },
 ];
+
+export function firstOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 1);
+}
+
+export function lastOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}

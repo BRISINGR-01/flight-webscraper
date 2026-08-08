@@ -1,112 +1,224 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Stack } from "react-bootstrap";
-import InfiniteCalendar, { Calendar } from "react-infinite-calendar";
-import "react-infinite-calendar/styles.css"; // Make sure to import the default stylesheet
-import type { PricePoint, Trip } from "../types";
-import { withPrices } from "./CalendarWithPrices";
+import { DayPicker } from "react-day-picker";
+import type { DayButtonProps } from "react-day-picker";
+import "react-day-picker/style.css";
+import "../styles.css";
+import type { PricePoint, TripCtx } from "../types";
 import { Loader } from "./Loader";
 import PriceChart from "./PricesChart";
 
-const CalendarWithRange = withPrices(Calendar);
-
 export function TripInspector({
-	trip,
-	pricesReturn,
-	pricesDepart,
+  trip,
+  pricesReturn,
+  pricesDepart,
 }: {
-	trip: Trip;
-	pricesReturn: PricePoint[];
-	pricesDepart: PricePoint[];
+  trip: TripCtx;
+  pricesReturn: PricePoint[];
+  pricesDepart: PricePoint[];
 }) {
-	const [pricesByDate, setPricesByDate] = useState<Map<string, number>>(new Map());
-	const [showDepart, setShowDepart] = useState(true);
-	const [disabledDates, setDisabledDates] = useState<Date[]>([]);
-	const [selectedDate, setSelectedDate] = useState<Date | null>(null);
+  const [selection, setSelection] = useState<
+    | {
+        date: Date;
+        data: PricePoint[];
+      }
+    | undefined
+  >(undefined);
 
-	const data = showDepart ? pricesDepart : pricesReturn;
+  const depart = useMemo(
+    () =>
+      buildCalendarData(pricesDepart, trip.depart.fromDate, trip.depart.toDate),
+    [pricesDepart, trip],
+  );
+  const ret = useMemo(
+    () =>
+      buildCalendarData(pricesReturn, trip.depart.fromDate, trip.arrive.toDate),
+    [pricesReturn, trip],
+  );
 
-	useEffect(() => {
-		const max = new Date();
-		max.setFullYear(max.getFullYear() + 3);
+  if (depart.pricesByDate.size === 0 && ret.pricesByDate.size === 0)
+    return <Loader />;
 
-		const allDates = getDates(trip.fromEarliest, trip.fromLatest);
+  console.log(trip);
 
-		if (data.length === 0) {
-			setDisabledDates(allDates);
-			return;
-		}
+  return (
+    <Stack>
+      <div className="d-flex justify-content-between align-items-start">
+        <div>
+          <div className="fw-semibold">
+            {trip.airline}: {trip.depart.airport} → {trip.arrive.airport}
+          </div>
+          <div className="small text-muted">
+            Out: {trip.depart.fromDate.toDateString()} –{" "}
+            {trip.depart.toDate.toDateString()}
+            <br />
+            Return: {trip.depart.fromDate.toDateString()} –{" "}
+            {trip.arrive.toDate.toDateString()}
+          </div>
+        </div>
+      </div>
 
-		const latesPrices = getLatestPrices(data);
-		setPricesByDate(new Map(latesPrices.map((p) => [p.date.toDateString(), p.price])));
+      <div className="d-flex flex-column flex-xl-row gap-4 justify-content-center">
+        <PriceCalendar
+          title="Outbound prices"
+          pricesByDate={depart.pricesByDate}
+          disabledDates={depart.disabledDates}
+          range={{ earliest: trip.depart.fromDate, latest: trip.depart.toDate }}
+          priceClass="rdp-price-depart"
+          selected={selection?.date}
+          onSelect={(date) =>
+            setSelection(date ? { date, data: pricesDepart } : undefined)
+          }
+        />
+        <PriceCalendar
+          title="Return prices"
+          pricesByDate={ret.pricesByDate}
+          disabledDates={ret.disabledDates}
+          range={{ earliest: trip.depart.fromDate, latest: trip.arrive.toDate }}
+          priceClass="rdp-price-return"
+          selected={selection?.date}
+          onSelect={(date) =>
+            setSelection(date ? { date, data: pricesReturn } : undefined)
+          }
+        />
+      </div>
 
-		const enabled = latesPrices.map(({ date }) => date.toDateString());
-		setDisabledDates(allDates.filter((d) => !enabled.includes(d.toDateString())));
-	}, [data]);
+      {selection && <PriceChart date={selection.date} data={selection.data} />}
+    </Stack>
+  );
+}
 
-	if (pricesByDate.size === 0) return <Loader />;
+function PriceCalendar(props: {
+  title: string;
+  pricesByDate: Map<string, number>;
+  disabledDates: Date[];
+  range: { earliest: Date; latest: Date };
+  priceClass: string;
+  selected?: Date;
+  onSelect: (date: Date | undefined) => void;
+}) {
+  const {
+    title,
+    pricesByDate,
+    disabledDates,
+    range,
+    priceClass,
+    selected,
+    onSelect,
+  } = props;
 
-	return (
-		<Stack>
-			<div className="d-flex justify-content-between align-items-start">
-				<div>
-					<div className="fw-semibold">
-						{trip.airline}: {trip.fromAirport} → {trip.toAirport}
-					</div>
-					<div className="small text-muted">
-						Out: {trip.fromEarliest.toDateString()} – {trip.fromLatest.toDateString()}
-						<br />
-						Return: {trip.toEarliest.toDateString()} – {trip.toLatest.toDateString()}
-					</div>
-				</div>
-			</div>
-			<Stack className="flex-lg-row">
-				<InfiniteCalendar
-					Component={CalendarWithRange}
-					pricesByDate={pricesByDate}
-					onSelect={setSelectedDate}
-					displayOptions={{ showHeader: false }}
-					// height={innerHeight * 0.8}
-					// width={innerWidth * 0.9}
-					disabledDates={disabledDates}
-					locale={{ headerFormat: "MMM Do" }}
-					min={trip.fromEarliest}
-					minDate={trip.fromEarliest}
-					maxDate={trip.fromLatest}
-					max={trip.fromLatest}
-				/>
-				{selectedDate && <PriceChart date={selectedDate} data={data} />}
-			</Stack>
-		</Stack>
-	);
+  const DayButton = useMemo(
+    () => (buttonProps: DayButtonProps) => (
+      <PriceDayButton
+        {...buttonProps}
+        pricesByDate={pricesByDate}
+        priceClass={priceClass}
+      />
+    ),
+    [pricesByDate, priceClass],
+  );
+
+  console.log(range, selected);
+
+  return (
+    <div className="flex-grow-1">
+      <div className="text-center fw-semibold mb-2">{title}</div>
+      <div className="d-flex justify-content-center">
+        <DayPicker
+          className="prices-calendar"
+          mode="single"
+          numberOfMonths={1}
+          pagedNavigation
+          selected={selected}
+          onSelect={onSelect}
+          disabled={[
+            { before: range.earliest, after: range.latest },
+            ...disabledDates,
+          ]}
+          defaultMonth={range.earliest}
+          components={{ DayButton }}
+        />
+      </div>
+    </div>
+  );
+}
+
+function PriceDayButton(
+  props: DayButtonProps & {
+    pricesByDate: Map<string, number>;
+    priceClass: string;
+  },
+) {
+  const { day, modifiers, children, pricesByDate, priceClass, ...buttonProps } =
+    props;
+  const ref = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    if (modifiers.focused) ref.current?.focus();
+  }, [modifiers.focused]);
+
+  const price = pricesByDate.get(day.date.toDateString());
+
+  return (
+    <button ref={ref} {...buttonProps}>
+      <span className="d-flex flex-column align-items-center justify-content-center">
+        {children}
+        {price !== undefined && (
+          <span className={`rdp-price ${priceClass}`}>{price}€</span>
+        )}
+      </span>
+    </button>
+  );
+}
+
+function buildCalendarData(data: PricePoint[], earliest: Date, latest: Date) {
+  if (data.length === 0) {
+    return {
+      pricesByDate: new Map<string, number>(),
+      disabledDates: getDates(earliest, latest),
+    };
+  }
+
+  const latesPrices = getLatestPrices(data);
+  const pricesByDate = new Map(
+    latesPrices.map((p) => [p.date.toDateString(), p.price]),
+  );
+
+  const enabled = latesPrices.map(({ date }) => date.toDateString());
+  const disabledDates = getDates(earliest, latest).filter(
+    (d) => !enabled.includes(d.toDateString()),
+  );
+
+  return { pricesByDate, disabledDates };
 }
 
 function getDates(from: Date, to: Date) {
-	const dates = [];
+  const dates = [];
 
-	let start = new Date(from);
-	while (start < to) {
-		dates.push(new Date(start));
-		start.setDate(start.getDate() + 1);
-	}
+  let start = new Date(from);
+  while (start < to) {
+    dates.push(new Date(start));
+    start.setDate(start.getDate() + 1);
+  }
 
-	return dates;
+  return dates;
 }
 
 function getLatestPrices(data: PricePoint[]) {
-	let latestCreateDate = data.at(-1)!.createdAt.toDateString();
+  let latestCreateDate = data.at(-1)!.createdAt.toDateString();
 
-	for (const { createdAt } of data) {
-		const date = createdAt.toDateString();
-		if (date === latestCreateDate) {
-			latestCreateDate = date;
-		}
-	}
+  for (const { createdAt } of data) {
+    const date = createdAt.toDateString();
+    if (date === latestCreateDate) {
+      latestCreateDate = date;
+    }
+  }
 
-	const dates = [];
-	for (const date of data) {
-		if (date.createdAt.toDateString() === latestCreateDate) {
-			dates.push(date);
-		}
-	}
-	return dates;
+  const dates = [];
+  for (const date of data) {
+    if (date.createdAt.toDateString() === latestCreateDate) {
+      dates.push(date);
+    }
+  }
+  return dates;
 }

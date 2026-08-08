@@ -1,11 +1,25 @@
 import { DataTypes, Model, Op, Sequelize } from "sequelize";
-import type { Airline } from "./utils.ts";
+import { firstOfMonth, lastOfMonth, type Airline } from "./utils.ts";
+import { TripCtx, TripCtxWithId } from "../ui/src/types.ts";
 
-const sequelize = new Sequelize("sqlite:../../artifacts/db.db", {
-  logging: (message) => {
-    // logger.
+const sequelize = new Sequelize(
+  "sqlite:/home/alex/Desktop/VSC/ryanair/artifacts/db.db",
+  {
+    logging: (message) => {
+      // logger.
+    },
   },
-});
+);
+
+export type DatePriceAttributes = {
+  airline: string;
+  fromAirport: string;
+  toAirport: string;
+  takeOff?: Date;
+  landing?: Date;
+  date: Date;
+  price: number;
+};
 
 class DatePrice extends Model {}
 DatePrice.init(
@@ -23,6 +37,17 @@ DatePrice.init(
     modelName: "DatePrice",
   },
 );
+
+export type TripAttributes = {
+  id: number;
+  airline: string;
+  fromAirport: string;
+  toAirport: string;
+  fromEarliest: string;
+  fromLatest: string;
+  toEarliest: string;
+  toLatest: string;
+};
 
 class Trip extends Model {}
 
@@ -47,22 +72,8 @@ Trip.init(
   },
 );
 
-export async function save(
-  airline: Airline,
-  date: Date,
-  price: number,
-  fromAirport: string,
-  toAirport: string,
-  takeOff?: Date,
-  landing?: Date,
-) {
-  return DatePrice.create({
-    airline: airline.toString(),
-    date,
-    price,
-    fromAirport,
-    toAirport,
-  });
+export async function save(data: DatePriceAttributes[]) {
+  return DatePrice.bulkCreate(data);
 }
 
 export async function get() {
@@ -83,24 +94,36 @@ export async function getDistinctAirlines() {
   return records.map((r: any) => r.get("airline") as string);
 }
 
-export type TripAttributes = {
-  id: number;
-  airline: string;
-  fromAirport: string;
-  toAirport: string;
-  fromEarliest: Date;
-  fromLatest: Date;
-  toEarliest: Date;
-  toLatest: Date;
-};
-
-export async function listTrips(): Promise<TripAttributes[]> {
+export async function listTrips(): Promise<TripCtxWithId[]> {
   const trips = await Trip.findAll({ order: [["id", "ASC"]] });
-  return trips.map((t: any) => t.toJSON() as TripAttributes);
+  return trips
+    .map((t: any) => t.toJSON() as TripAttributes)
+    .map((t: TripAttributes) => ({
+      id: t.id,
+      airline: t.airline as Airline,
+      depart: {
+        airport: t.fromAirport,
+        fromDate: new Date(t.fromEarliest),
+        toDate: new Date(t.fromLatest),
+      },
+      arrive: {
+        airport: t.toAirport,
+        fromDate: new Date(t.toEarliest),
+        toDate: new Date(t.toLatest),
+      },
+    }));
 }
 
-export async function createTrip(attrs: Omit<TripAttributes, "id">) {
-  const created = await Trip.create(attrs);
+export async function createTrip(trip: TripCtx) {
+  const created = await Trip.create({
+    airline: trip.airline,
+    fromAirport: trip.depart.airport,
+    toAirport: trip.arrive.airport,
+    fromEarliest: trip.depart.fromDate.toUTCString(),
+    fromLatest: trip.depart.toDate.toUTCString(),
+    toEarliest: trip.arrive.fromDate.toUTCString(),
+    toLatest: trip.arrive.toDate.toUTCString(),
+  });
   return created.dataValues.id;
 }
 
@@ -119,7 +142,10 @@ export async function getPriceHistoryForTrip(tripId: string) {
       fromAirport: t.fromAirport,
       toAirport: t.toAirport,
       date: {
-        [Op.between]: [t.fromEarliest, t.fromLatest],
+        [Op.between]: [
+          firstOfMonth(new Date(t.fromEarliest)),
+          lastOfMonth(new Date(t.fromLatest)),
+        ],
       },
     },
     order: [["createdAt", "ASC"]],
@@ -130,7 +156,10 @@ export async function getPriceHistoryForTrip(tripId: string) {
       fromAirport: t.toAirport,
       toAirport: t.fromAirport,
       date: {
-        [Op.between]: [t.toEarliest, t.toLatest],
+        [Op.between]: [
+          firstOfMonth(new Date(t.toEarliest)),
+          lastOfMonth(new Date(t.toLatest)),
+        ],
       },
     },
     order: [["createdAt", "ASC"]],
@@ -147,7 +176,20 @@ export async function getPriceHistoryForTrip(tripId: string) {
       date: p.dataValues.date,
       price: p.dataValues.price,
     })),
-    trip,
+    trip: {
+      id: t.id,
+      airline: t.airline as Airline,
+      depart: {
+        airport: t.fromAirport,
+        fromDate: new Date(t.fromEarliest),
+        toDate: new Date(t.fromLatest),
+      },
+      arrive: {
+        airport: t.toAirport,
+        fromDate: new Date(t.toEarliest),
+        toDate: new Date(t.toLatest),
+      },
+    },
   };
 }
 

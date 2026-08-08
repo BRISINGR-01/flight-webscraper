@@ -1,30 +1,48 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import { ErrorPage } from "../components/ErrorPage";
+import { Loader } from "../components/Loader";
 import { TripCreator } from "../components/TripCreator";
-import { API } from "../utils";
+import { API, getErrorMessage } from "../utils";
+import { useToast } from "../components/ToastProvider";
 
 type TripCreatorPageProps = {
 	selectedAirline: string;
 };
 
-function toISO(value: string) {
-	return value;
-}
-
-function addDaysStr(value: string, days: number) {
-	const d = new Date(value + "T00:00:00");
-	d.setDate(d.getDate() + days);
-	return d.toISOString().slice(0, 10);
-}
-
 export function TripCreatorPage({ selectedAirline }: TripCreatorPageProps) {
 	const [airports, setAirports] = useState<string[]>([]);
-
-	useEffect(() => {
-		API.getAirports().then((res) => setAirports(res));
-	}, []);
+	const [loading, setLoading] = useState(true);
+	const [error, setError] = useState<string | null>(null);
 
 	const navigate = useNavigate();
+	const { showToast } = useToast();
+
+	const loadAirports = useCallback(async () => {
+		setLoading(true);
+		setError(null);
+		try {
+			setAirports(await API.getAirports());
+		} catch (e) {
+			setError(getErrorMessage(e));
+		} finally {
+			setLoading(false);
+		}
+	}, []);
+
+	useEffect(() => {
+		loadAirports();
+	}, [loadAirports]);
+
+	if (loading) return <Loader />;
+	if (error)
+		return (
+			<ErrorPage
+				message={error}
+				onRetry={loadAirports}
+				onBack={() => navigate("/trips")}
+			/>
+		);
 
 	async function handleSubmit(data: {
 		airports: { from: string; to: string };
@@ -33,23 +51,21 @@ export function TripCreatorPage({ selectedAirline }: TripCreatorPageProps) {
 			to: { earliest: Date; latest: Date };
 		};
 	}) {
-		const res = await API.createTrip(
-			selectedAirline,
-			data.airports.from,
-			data.airports.to,
-			data.dates.from.earliest,
-			data.dates.from.latest,
-			data.dates.to.earliest,
-			data.dates.to.latest,
-		);
-		if (!res.ok) {
-			const err = await res.json().catch(() => ({}));
-			return;
+		try {
+			const id = await API.createTrip(
+				selectedAirline,
+				data.airports.from,
+				data.airports.to,
+				data.dates.from.earliest,
+				data.dates.from.latest,
+				data.dates.to.earliest,
+				data.dates.to.latest,
+			);
+			window.localStorage.setItem("lastTripId", id);
+			navigate(`/trips/${id}`);
+		} catch (e) {
+			showToast(`Could not create trip: ${getErrorMessage(e)}`);
 		}
-
-		const id = await res.text();
-		window.localStorage.setItem("lastTripId", id);
-		navigate(`/trips/${id}`);
 	}
 
 	return <TripCreator airports={airports} onSubmit={handleSubmit} onBack={() => navigate(-1)} />;
