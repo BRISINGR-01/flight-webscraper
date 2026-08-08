@@ -1,7 +1,7 @@
 import { DataTypes, Model, Op, Sequelize } from "sequelize";
-import type { Airline } from "../data/utils";
+import type { Airline } from "./utils.ts";
 
-const sequelize = new Sequelize("sqlite:../artifacts/db.db", {
+const sequelize = new Sequelize("sqlite:../../artifacts/db.db", {
   logging: (message) => {
     // logger.
   },
@@ -110,9 +110,7 @@ export async function deleteTrip(id: string) {
 
 export async function getPriceHistoryForTrip(tripId: string) {
   const trip = await Trip.findByPk(tripId);
-  if (!trip) {
-    throw new Error("Trip not found");
-  }
+  if (!trip) throw new Error("Trip not found");
 
   const t: TripAttributes = trip.dataValues;
   const pricesDepart = await DatePrice.findAll({
