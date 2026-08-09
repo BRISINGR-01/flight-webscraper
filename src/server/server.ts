@@ -9,7 +9,7 @@ import {
 } from "../data/db";
 import { Airline, AIRPORTS } from "../data/utils";
 import { TripCtx } from "../ui/src/types";
-import { collectData } from "../webscraper";
+import collectData from "../webscraper/apis/collect";
 
 const port = Number(process.env.PORT ?? 3000);
 
@@ -76,9 +76,7 @@ async function handleCreateTrip(req: Request) {
     return badRequest("toLatest must not be before toEarliest");
   }
 
-  const trip = await createTrip(body);
-
-  return jsonResponse(trip.id, { status: 201 });
+  return jsonResponse(await createTrip(body), { status: 201 });
 }
 
 async function handleDeleteTrip(id: string | undefined) {
@@ -99,19 +97,19 @@ async function handleGetTripPrices(id: string | null) {
 
       const t: TripAttributes = trip.dataValues;
 
-      await collectData(
-        t.airline as Airline,
-        {
+      await collectData({
+        airline: t.airline as Airline,
+        depart: {
           airport: t.fromAirport,
-          from: new Date(t.fromEarliest),
-          to: new Date(t.fromLatest),
+          fromDate: new Date(t.fromEarliest),
+          toDate: new Date(t.fromLatest),
         },
-        {
+        arrive: {
           airport: t.toAirport,
-          from: new Date(t.toEarliest),
-          to: new Date(t.toLatest),
+          fromDate: new Date(t.toEarliest),
+          toDate: new Date(t.toLatest),
         },
-      );
+      });
 
       result = await getPriceHistoryForTrip(id);
     }

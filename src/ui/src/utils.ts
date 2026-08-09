@@ -100,10 +100,12 @@ export class API {
   }
 
   static async createTrip(trip: TripCtx) {
-    return request("/trips", {
+    const res = await request("/trips", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(trip),
     });
+
+    return res.json();
   }
 }

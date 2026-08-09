@@ -39,8 +39,6 @@ export function TripInspector({
   if (depart.pricesByDate.size === 0 && ret.pricesByDate.size === 0)
     return <Loader />;
 
-  console.log(trip);
-
   return (
     <Stack>
       <div className="d-flex justify-content-between align-items-start">
@@ -74,7 +72,7 @@ export function TripInspector({
           title="Return prices"
           pricesByDate={ret.pricesByDate}
           disabledDates={ret.disabledDates}
-          range={{ earliest: trip.depart.fromDate, latest: trip.arrive.toDate }}
+          range={{ earliest: trip.arrive.fromDate, latest: trip.arrive.toDate }}
           priceClass="rdp-price-return"
           selected={selection?.date}
           onSelect={(date) =>
@@ -118,8 +116,6 @@ function PriceCalendar(props: {
     [pricesByDate, priceClass],
   );
 
-  console.log(range, selected);
-
   return (
     <div className="flex-grow-1">
       <div className="text-center fw-semibold mb-2">{title}</div>
@@ -131,10 +127,7 @@ function PriceCalendar(props: {
           pagedNavigation
           selected={selected}
           onSelect={onSelect}
-          disabled={[
-            { before: range.earliest, after: range.latest },
-            ...disabledDates,
-          ]}
+          disabled={disabledDates}
           defaultMonth={range.earliest}
           components={{ DayButton }}
         />
@@ -164,7 +157,9 @@ function PriceDayButton(
       <span className="d-flex flex-column align-items-center justify-content-center">
         {children}
         {price !== undefined && (
-          <span className={`rdp-price ${priceClass}`}>{price}€</span>
+          <span className={`rdp-price ${priceClass}`}>
+            {Math.round(price)}€
+          </span>
         )}
       </span>
     </button>

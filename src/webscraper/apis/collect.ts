@@ -55,6 +55,4 @@ export default async function collectData(trip: TripCtx) {
         })),
     );
   }
-
-  console.log("Success");
 }

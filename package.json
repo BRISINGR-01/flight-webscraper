@@ -33,7 +33,7 @@
   "scripts": {
     "server": "bun run src/server/server.ts",
     "scrape": "bun run src/webscraper/scrape.ts",
-    "dev": "npm run server & npm run ui",
+    "dev": "npm run server & npm run ui & open http://localhost:5173/",
     "ui": "cd src/ui; vite",
     "ui-build": "vite build",
     "ui-preview": "vite preview"

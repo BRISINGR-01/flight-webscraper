@@ -73,7 +73,7 @@ Trip.init(
 );
 
 export async function save(data: DatePriceAttributes[]) {
-  return DatePrice.bulkCreate(data);
+  if (data.length !== 0) return DatePrice.bulkCreate(data);
 }
 
 export async function get() {

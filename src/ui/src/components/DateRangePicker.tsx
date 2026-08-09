@@ -30,7 +30,7 @@ export function DateRangePicker(props: {
       <div className="d-flex justify-content-center">
         <DayPicker
           mode="range"
-          numberOfMonths={2}
+          numberOfMonths={1}
           pagedNavigation
           selected={props.selected}
           onSelect={props.onSelect}

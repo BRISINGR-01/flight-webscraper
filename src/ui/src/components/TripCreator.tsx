@@ -23,8 +23,8 @@ const STEPS = ["Airports", "Dates", "Review"];
 export function TripCreator(props: TripCreatorProps) {
   const [airports, setAirports] = useState<{ from: string; to: string } | null>(
     {
-      from: "SOF",
-      to: "EIN",
+      from: "EIN",
+      to: "SOF",
     },
   );
   const [outbound, setOutbound] = useState<DateRange | null>(null);

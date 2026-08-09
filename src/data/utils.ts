@@ -123,6 +123,10 @@ export const AIRPORTS = [
   { code: "EIN", name: "Eindhoven" },
 ];
 
+export function airportNameToCOde(name: string) {
+  return AIRPORTS.find((airport) => airport.name === name)!.code;
+}
+
 export function firstOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }

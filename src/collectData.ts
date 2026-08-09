@@ -4,7 +4,7 @@ import collectData from "./webscraper/apis/collect";
 collectData({
   airline: Airline.Ryanair,
   depart: {
-    airport: "EIN",
+    airport: "TIA",
     fromDate: new Date(2026, 11, 10),
     toDate: new Date(2026, 11, 27),
   },
