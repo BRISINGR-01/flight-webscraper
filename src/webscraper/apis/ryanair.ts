@@ -216,7 +216,9 @@ export async function fetchRyanAirCheapestPerDay(
 
   const res = await ryanairFetch<RyanAirCheapestPerDayResponse>(url);
 
-  res.outbound.fares = res.outbound.fares.filter((f) => f.arrivalDate);
+  res.outbound.fares = res.outbound.fares.filter(
+    (fare) => !fare.soldOut && fare.price && fare.arrivalDate,
+  );
 
   return res;
 }

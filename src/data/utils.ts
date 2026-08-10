@@ -1,4 +1,5 @@
 import type { Page } from "puppeteer";
+import { TripCtx } from "../ui/src/types";
 
 export type FlightCtx = {
   airport: string;
@@ -15,6 +16,7 @@ export type Ctx = {
 };
 
 export enum DateFormatters {
+  Wizzair,
   Ryanair,
   Human,
 }
@@ -25,6 +27,8 @@ export function formatDate(date: Date, format: DateFormatters) {
   switch (format) {
     case DateFormatters.Ryanair:
       return `${pad(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+    case DateFormatters.Wizzair:
+      return `${pad(date.getFullYear())}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T00:00:00`;
     case DateFormatters.Human:
     default:
       return `${date.getDate()} ${getMonth(date)} ${date.getFullYear()}`;
@@ -92,6 +96,7 @@ export function createRyanAirURL(from: FlightCtx, to: FlightCtx) {
 
 export enum Airline {
   Ryanair = "Ryanair",
+  Wizzair = "Wizzair",
 }
 
 export const MONTHS_LABELS = [
@@ -131,6 +136,51 @@ export function firstOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth(), 1);
 }
 
+export function middleOfMonth(d: Date) {
+  return new Date(d.getFullYear(), d.getMonth(), 15);
+}
+
 export function lastOfMonth(d: Date) {
   return new Date(d.getFullYear(), d.getMonth() + 1, 0);
+}
+
+export type Airport = { label: string; id: string };
+
+export function validateTrip(trip: TripCtx) {
+  if (
+    (isNaN(trip.arrive.toDate.getTime()) ??
+      isNaN(trip.arrive.fromDate.getTime())) ||
+    trip.arrive.toDate.getTime() < trip.arrive.fromDate.getTime()
+  ) {
+    throw new Error("Invalid arrival dates");
+  }
+
+  if (
+    (isNaN(trip.depart.toDate.getTime()) ??
+      isNaN(trip.depart.fromDate.getTime())) ||
+    trip.depart.toDate.getTime() < trip.depart.fromDate.getTime()
+  ) {
+    throw new Error("Invalid departure dates");
+  }
+
+  if (
+    trip.arrive.fromDate.getTime() < trip.depart.fromDate.getTime() ||
+    trip.depart.toDate.getTime() < trip.arrive.toDate.getTime()
+  ) {
+    throw new Error("Arrival cannot be earlier than departure");
+  }
+
+  function getDateDiff(d1: Date, d2: Date) {
+    var t2 = d2.getTime();
+    var t1 = d1.getTime();
+
+    return Math.floor((t2 - t1) / (24 * 3600 * 1000));
+  }
+
+  if (
+    getDateDiff(trip.depart.fromDate, trip.depart.toDate) > 21 ||
+    getDateDiff(trip.arrive.fromDate, trip.arrive.toDate) > 21
+  ) {
+    throw new Error("Dates range must be at most 21 days");
+  }
 }

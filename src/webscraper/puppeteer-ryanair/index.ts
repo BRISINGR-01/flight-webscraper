@@ -1,6 +1,6 @@
 import type { ElementHandle } from "puppeteer";
-import { save, setUpDb } from "../data/db.ts";
-import { logger } from "../data/logger.ts";
+import { save, setUpDb } from "../../data/db.ts";
+import { logger } from "../../data/logger.ts";
 import {
   disposePuppeteer,
   extractMonthData,
@@ -8,7 +8,7 @@ import {
   openFlight,
   setUpPuppeteer,
   switchMonth,
-} from "./puppeteer.ts";
+} from "../puppeteer-ryanair/puppeteer.ts";
 import {
   Airline,
   createRyanAirURL,
@@ -21,7 +21,7 @@ import {
   type CollectedData,
   firstOfMonth,
   lastOfMonth,
-} from "../data/utils.ts";
+} from "../../data/utils.ts";
 
 export async function collectData(
   airline: Airline,

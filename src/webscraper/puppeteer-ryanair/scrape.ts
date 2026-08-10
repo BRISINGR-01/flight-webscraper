@@ -1,5 +1,5 @@
 import { collectData, createFlight } from ".";
-import { Airline } from "../data/utils";
+import { Airline } from "../../data/utils";
 
 collectData(
   Airline.Ryanair,

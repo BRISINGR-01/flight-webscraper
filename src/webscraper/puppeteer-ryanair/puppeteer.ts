@@ -1,5 +1,5 @@
 import puppeteer, { type Browser, type ElementHandle } from "puppeteer";
-import { type Ctx } from "../data/utils.ts";
+import { type Ctx } from "../../data/utils.ts";
 
 let browser: Browser;
 export async function setUpPuppeteer() {
